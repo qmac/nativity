@@ -6,13 +6,13 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import Normalizer
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 
 SCRIPT_DIR = '/Users/quinnmac/Documents/NLP/Final Project/nli-shared-task-2017/scripts/'
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 
 
-def load_features_and_labels(train_partition, test_partition, preprocessor='tokenized', vectorizer=None, feature_outfile_name=None):
+def load_files(train_partition, test_partition, preprocessor='tokenized'):
     train_labels_path = "{script_dir}/../data/labels/{train}/labels.{train}.csv".format(train=train_partition, script_dir=SCRIPT_DIR)
     test_labels_path = "{script_dir}/../data/labels/{test}/labels.{test}.csv".format(test=test_partition, script_dir=SCRIPT_DIR)
 
@@ -29,17 +29,10 @@ def load_features_and_labels(train_partition, test_partition, preprocessor='toke
         test_files, test_labels = zip(*[(os.path.join(essay_path_test, row['test_taker_id'] + '.txt'), row['L1'])
                                         for row in csv.DictReader(test_labels_f)])
 
-    training_matrix, encoded_training_labels, vectorizer = load_unigrams(training_files,
-                                                                         training_labels,
-                                                                         vectorizer,
-                                                                         fit=True)
-    test_matrix, encoded_test_labels,  _ = load_unigrams(test_files, test_labels, vectorizer)
-
-    return [(training_matrix, encoded_training_labels, training_labels),
-            (test_matrix, encoded_test_labels, test_labels)]
+    return training_files, training_labels, test_files, test_labels
 
 
-def load_unigrams(file_list, labels, vectorizer=None, fit=False):
+def load_ngrams(file_list, labels, vectorizer=None, fit=False):
     # convert label strings to integers
     labels_encoded = [CLASS_LABELS.index(label) for label in labels]
     if vectorizer is None:
@@ -50,7 +43,7 @@ def load_unigrams(file_list, labels, vectorizer=None, fit=False):
     else:
         doc_term_matrix = vectorizer.transform(file_list)
 
-    print("Created a document-term matrix with %d rows and %d columns." 
+    print("Created a document-term matrix with %d rows and %d columns."
           % (doc_term_matrix.shape[0], doc_term_matrix.shape[1]))
 
     return doc_term_matrix.astype(float), labels_encoded, vectorizer
@@ -68,14 +61,17 @@ if __name__ == '__main__':
     test_partition_name = 'dev'
     preprocessor = 'tokenized'
 
-    char_vectorizer = CountVectorizer(input='filename', ngram_range=(1, 2), min_df=1)
+    vectorizer = CountVectorizer(input='filename', ngram_range=(1, 2), min_df=1)
 
     #
     # Load the training and test features and labels
     #
-    training_and_test_data = load_features_and_labels(training_partition_name, test_partition_name, vectorizer=char_vectorizer)
-    training_matrix, encoded_training_labels, original_training_labels = training_and_test_data[0]
-    test_matrix, encoded_test_labels, original_test_labels = training_and_test_data[1]
+    training_files, training_labels, test_files, test_labels = load_files(training_partition_name, test_partition_name)
+    training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
+                                                                       training_labels,
+                                                                       vectorizer,
+                                                                       fit=True)
+    test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
 
     #
     # Run the classifier
@@ -91,6 +87,7 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
     clf = LinearSVC()
+    # clf = SVC(cache_size=7000)
     # clf = KNeighborsClassifier()
     # clf = RandomForestClassifier(n_estimators=200)
     clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
