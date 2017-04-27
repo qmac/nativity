@@ -61,7 +61,9 @@ if __name__ == '__main__':
     test_partition_name = 'dev'
     preprocessor = 'tokenized'
 
-    vectorizer = CountVectorizer(input='filename', ngram_range=(1, 2), min_df=1)
+    # vectorizer = CountVectorizer(input='filename', ngram_range=(1, 1), min_df=1)
+    from features import POSTokenizer
+    vectorizer = CountVectorizer(input='filename', tokenizer=POSTokenizer(), ngram_range=(4, 4))
 
     #
     # Load the training and test features and labels
@@ -71,6 +73,8 @@ if __name__ == '__main__':
                                                                        training_labels,
                                                                        vectorizer,
                                                                        fit=True)
+
+    # print 'Final features: ' + str(vectorizer.get_feature_names())
     test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
 
     #
@@ -87,7 +91,7 @@ if __name__ == '__main__':
     # Check the scikit-learn documentation for other models
     print("Training the classifier...")
     clf = LinearSVC()
-    # clf = SVC(cache_size=7000)
+    # clf = SVC()
     # clf = KNeighborsClassifier()
     # clf = RandomForestClassifier(n_estimators=200)
     clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
