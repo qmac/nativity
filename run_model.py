@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import Normalizer
+from sklearn.preprocessing import Normalizer, scale
 from sklearn.svm import LinearSVC, SVC
 
 from features import POSTokenizer, StylometricFeatureExtractor
@@ -69,7 +69,7 @@ def load_features(file_list):
         matrix = np.append(matrix, vectorizer.extract(f.readlines()), axis=0)
         f.close()
 
-    return matrix
+    return scale(matrix)
 
 
 def pretty_print_cm(cm, class_labels):
