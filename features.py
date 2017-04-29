@@ -33,6 +33,16 @@ class StylometricFeatureExtractor(object):
             words_in_sentence = word_tokenize(s)
 
             for w in words_in_sentence:
+
+                if w.startswith("'"):
+                    w = w[1:]
+
+                if w.endswith("\\n"):
+                    w = w[:-2]
+
+                if not w or w == "``" :
+                    continue
+
                 if w in list(string.punctuation):
                     punc_count += 1
                     continue
@@ -57,6 +67,7 @@ class StylometricFeatureExtractor(object):
                             sum_sent_lengths/len_of_essay,
                             sum_word_lengths/sum_sent_lengths,
                             lexical_variety])
+        print sum_sent_lengths
         return np_vec
 
 
