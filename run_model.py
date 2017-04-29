@@ -9,7 +9,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC, SVC
 
-from features import CustomTokenizer
+from features import POSTokenizer, StylometricFeatureExtractor
 
 SCRIPT_DIR = '../nli-shared-task-2017/scripts/'
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
@@ -35,9 +35,12 @@ def load_files(train_partition, test_partition, preprocessor='tokenized'):
     return training_files, training_labels, test_files, test_labels
 
 
+def encode_labels(labels):
+    return [CLASS_LABELS.index(label) for label in labels]
+
+
 def load_ngrams(file_list, labels, vectorizer=None, fit=False):
     # convert label strings to integers
-    labels_encoded = [CLASS_LABELS.index(label) for label in labels]
     if vectorizer is None:
         vectorizer = CountVectorizer(input="filename")  # create a new one
         doc_term_matrix = vectorizer.fit_transform(file_list)
@@ -49,27 +52,24 @@ def load_ngrams(file_list, labels, vectorizer=None, fit=False):
     print("Created a document-term matrix with %d rows and %d columns."
           % (doc_term_matrix.shape[0], doc_term_matrix.shape[1]))
 
-    return doc_term_matrix.astype(float), labels_encoded, vectorizer
+    return doc_term_matrix.astype(float), vectorizer
 
-def load_features(file_list, labels, vectorizer=None, fit=False):
-    labels_encoded = [CLASS_LABELS.index(label) for label in labels]
 
-    my_vectorizer = CustomTokenizer()
+def load_features(file_list):
+    vectorizer = StylometricFeatureExtractor()
 
     file_name = file_list[0]
     f = open(file_name, 'r')
-    matrix = my_vectorizer(f.readlines(), 0)
+    matrix = vectorizer.extract(f.readlines())
     f.close()
 
     for i in range(1, len(file_list)):
         file_name = file_list[i]
         f = open(file_name, 'r')
-        matrix = np.append(matrix, my_vectorizer(f.readlines(), i), axis=0)
+        matrix = np.append(matrix, vectorizer.extract(f.readlines()), axis=0)
         f.close()
 
-    return matrix, labels_encoded, my_vectorizer
-
-
+    return matrix
 
 
 def pretty_print_cm(cm, class_labels):
@@ -84,22 +84,25 @@ if __name__ == '__main__':
     test_partition_name = 'dev'
     preprocessor = 'tokenized'
 
-    vectorizer = CountVectorizer(input='filename', ngram_range=(1, 2), min_df=1)
-
-    #
-    # Load the training and test features and labels
-    #
+    # Get the document files
     training_files, training_labels, test_files, test_labels = load_files(training_partition_name, test_partition_name)
 
-    # training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
-                                                                       # training_labels,
-                                                                       # vectorizer,
-                                                                       # fit=True)
-    # test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
+    # Encode labels
+    encoded_training_labels = encode_labels(training_labels)
+    encoded_test_labels = encode_labels(test_labels)
 
-    #
-    # Run the classifier
-    #
+    # Create training and testing matrix
+    training_matrix = load_features(training_files)
+    testing_matrix = load_features(test_files)
+
+    # vectorizer = CountVectorizer(input='filename', ngram_range=(1, 1), min_df=1)
+    # vectorizer = CountVectorizer(input='filename', tokenizer=POSTokenizer(), ngram_range=(4, 4))
+    # training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
+    #                                                                    training_labels,
+    #                                                                    vectorizer,
+    #                                                                    fit=True)
+    # print 'Final features: ' + str(vectorizer.get_feature_names())
+    # test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
 
     # Normalize frequencies to unit length
     # transformer = Normalizer()
@@ -107,19 +110,10 @@ if __name__ == '__main__':
     # training_matrix = transformer.fit_transform(training_matrix)
     # testing_matrix = transformer.fit_transform(test_matrix)
 
-
-    # Loading training matrix of features
-    training_matrix, encoded_training_labels , vectorizer = load_features(training_files, training_labels, vectorizer, fit=True)
-    testing_matrix, encoded_test_labels,  _ = load_features(test_files, test_labels, vectorizer)
-
-    # print training_matrix
-    print "~~~~~~~~~~~~~~"
-
     # Train the model
-    # Check the scikit-learn documentation for other models
     print("Training the classifier...")
     clf = LinearSVC()
-    # clf = SVC(cache_size=7000)
+    # clf = SVC()
     # clf = KNeighborsClassifier()
     # clf = RandomForestClassifier(n_estimators=200)
     clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
