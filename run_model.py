@@ -79,6 +79,17 @@ def pretty_print_cm(cm, class_labels):
         print(row_format.format(l1, *row))
 
 
+def prediction_results(expected, predicted):
+    if -1 not in expected:
+        print("\nConfusion Matrix:\n")
+        cm = metrics.confusion_matrix(expected, predicted).tolist()
+        pretty_print_cm(cm, CLASS_LABELS)
+        print("\nClassification Results:\n")
+        print(metrics.classification_report(expected, predicted, target_names=CLASS_LABELS))
+    else:
+        print("The test set labels aren't known, cannot print accuracy report.")
+
+
 if __name__ == '__main__':
     training_partition_name = 'train'
     test_partition_name = 'dev'
@@ -126,11 +137,4 @@ if __name__ == '__main__':
     #
     # Display classification results
     #
-    if -1 not in encoded_test_labels:
-        print("\nConfusion Matrix:\n")
-        cm = metrics.confusion_matrix(encoded_test_labels, predicted).tolist()
-        pretty_print_cm(cm, CLASS_LABELS)
-        print("\nClassification Results:\n")
-        print(metrics.classification_report(encoded_test_labels, predicted, target_names=CLASS_LABELS))
-    else:
-        print("The test set labels aren't known, cannot print accuracy report.")
+    prediction_results(encoded_test_labels, predicted)
