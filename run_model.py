@@ -1,5 +1,6 @@
 import csv
 import os
+import numpy as np
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -8,7 +9,9 @@ from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC, SVC
 
-SCRIPT_DIR = '/Users/quinnmac/Documents/NLP/Final Project/nli-shared-task-2017/scripts/'
+from features import CustomTokenizer
+
+SCRIPT_DIR = '../nli-shared-task-2017/scripts/'
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 
 
@@ -48,6 +51,26 @@ def load_ngrams(file_list, labels, vectorizer=None, fit=False):
 
     return doc_term_matrix.astype(float), labels_encoded, vectorizer
 
+def load_features(file_list, labels, vectorizer=None, fit=False):
+    labels_encoded = [CLASS_LABELS.index(label) for label in labels]
+
+    my_vectorizer = CustomTokenizer()
+
+    file_name = file_list[0]
+    f = open(file_name, 'r')
+    matrix = my_vectorizer(f.readlines(), 0)
+    f.close()
+
+    for i in range(1, len(file_list)):
+        file_name = file_list[i]
+        f = open(file_name, 'r')
+        matrix = np.append(matrix, my_vectorizer(f.readlines(), i), axis=0)
+        f.close()
+
+    return matrix, labels_encoded, my_vectorizer
+
+
+
 
 def pretty_print_cm(cm, class_labels):
     row_format = "{:>5}" * (len(class_labels) + 1)
@@ -68,14 +91,14 @@ if __name__ == '__main__':
     #
     # Load the training and test features and labels
     #
-    training_files, training_labels, test_files, test_labels = load_files(training_partition_name, test_partition_name)
-    training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
-                                                                       training_labels,
-                                                                       vectorizer,
-                                                                       fit=True)
+    # training_files, training_labels, test_files, test_labels = load_files(training_partition_name, test_partition_name)
+    # training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
+    #                                                                    training_labels,
+    #                                                                    vectorizer,
+    #                                                                    fit=True)
 
-    # print 'Final features: ' + str(vectorizer.get_feature_names())
-    test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
+    # # print 'Final features: ' + str(vectorizer.get_feature_names())
+    # test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
 
     #
     # Run the classifier
@@ -83,9 +106,17 @@ if __name__ == '__main__':
 
     # Normalize frequencies to unit length
     # transformer = Normalizer()
-    transformer = TfidfTransformer()
-    training_matrix = transformer.fit_transform(training_matrix)
-    testing_matrix = transformer.fit_transform(test_matrix)
+    # transformer = TfidfTransformer()
+    # training_matrix = transformer.fit_transform(training_matrix)
+    # testing_matrix = transformer.fit_transform(test_matrix)
+
+
+    # Loading training matrix of features
+    training_matrix, encoded_training_labels , vectorizer = load_features(training_files, training_labels, vectorizer, fit=True)
+    testing_matrix, encoded_test_labels,  _ = load_features(test_files, test_labels, vectorizer)
+
+    # print training_matrix
+    print "~~~~~~~~~~~~~~"
 
     # Train the model
     # Check the scikit-learn documentation for other models
