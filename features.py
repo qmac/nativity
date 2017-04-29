@@ -20,11 +20,11 @@ class StylometricFeatureExtractor(object):
         sentences = sent_tokenize(str(doc))
         len_of_essay = len(sentences)
 
-        sum_sent_lengths = 0
-        sum_word_lengths = 0
-        punc_count = 0
-        num_mispelled_words = 0
-        num_of_articles = 0
+        sum_sent_lengths = 0.0
+        sum_word_lengths = 0.0
+        punc_count = 0.0
+        num_mispelled_words = 0.0
+        num_of_articles = 0.0
 
         passage = []
         for s in sentences:
@@ -48,7 +48,7 @@ class StylometricFeatureExtractor(object):
 
             sum_sent_lengths += len(words_in_sentence)
 
-        lexical_variety = len(set(passage)) / len(passage)
+        lexical_variety = len(set(passage)) / float(len(passage))
 
         np_vec = np.matrix([num_mispelled_words,
                             num_of_articles,
