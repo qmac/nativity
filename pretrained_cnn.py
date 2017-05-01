@@ -1,5 +1,7 @@
 '''
 Taken/adapted from keras/examples
+https://github.com/fchollet/keras/blob/master/examples/pretrained_word_embeddings.py
+
 
 This script loads pre-trained word embeddings (GloVe embeddings)
 into a frozen Keras Embedding layer, and uses it to
@@ -27,7 +29,7 @@ from gensim.models.keyedvectors import KeyedVectors
 from run_model import load_files, encode_labels
 
 
-WORD_VEC_FILE = '../trained_vectors.bin'
+WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
 MAX_SEQUENCE_LENGTH = 1000
 MAX_NB_WORDS = 20000
@@ -134,10 +136,10 @@ print('Training model.')
 sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 embedded_sequences = embedding_layer(sequence_input)
 x = Conv1D(128, 5, activation='relu')(embedded_sequences)
-x = MaxPooling1D(5)(x)
-x = Conv1D(128, 5, activation='relu')(x)
-x = MaxPooling1D(5)(x)
-x = Conv1D(128, 5, activation='relu')(x)
+# x = MaxPooling1D(5)(x)
+# x = Conv1D(128, 5, activation='relu')(x)
+# x = MaxPooling1D(5)(x)
+# x = Conv1D(128, 5, activation='relu')(x)
 x = MaxPooling1D(35)(x)
 x = Flatten()(x)
 x = Dense(128, activation='relu')(x)
@@ -145,7 +147,7 @@ preds = Dense(NUM_LABELS, activation='softmax')(x)
 
 model = Model(sequence_input, preds)
 model.compile(loss='categorical_crossentropy',
-              optimizer='rmsprop',
+              optimizer='adam',
               metrics=['acc'])
 
 model.fit(x_train, y_train,
@@ -154,8 +156,8 @@ model.fit(x_train, y_train,
           validation_data=(x_val, y_val))
 
 # Evaluate
-x_test = create_tensor(test_files, tokenizer=tokenizer)
-y_pred = model.predict(x_test)
+x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer)
 y_test = to_categorical(np.array(encode_labels(test_labels)))
-
-print(categorical_accuracy(y_test, y_pred))
+print(model.evaluate(x_test, y_test))
+# y_pred = model.predict(x_test)
+# print(categorical_accuracy(y_test, y_pred))
