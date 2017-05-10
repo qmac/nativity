@@ -28,6 +28,7 @@ from nltk.tokenize import sent_tokenize
 
 from run_model import load_files, encode_labels
 from features import POSTokenizer
+from evaluation import voting_test
 
 
 WORD_VEC_FILE = '../trained_vectors.bin'
@@ -106,6 +107,7 @@ def create_tensor(files, tokenizer=None):
     data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
     return data, word_index, tokenizer
+
 
 if __name__ == '__main__':
     # first, build index mapping words in the embeddings set
@@ -200,10 +202,11 @@ if __name__ == '__main__':
     print(model.summary())
     model.fit(x_train, y_train,
               batch_size=128,
-              epochs=10,
+              epochs=1,
               validation_data=(x_val, y_val))
 
     # Evaluate
-    x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer)
-    y_test = to_categorical(np.array(encode_labels(test_labels)))
+    x_test, _, _, test_sentence_dict = create_sentence_tensor(test_files, tokenizer=tokenizer)
+    y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
     print(model.evaluate(x_test, y_test))
+    voting_test(model, x_test, test_labels, test_sentence_dict)

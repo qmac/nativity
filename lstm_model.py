@@ -14,6 +14,7 @@ from gensim.models.keyedvectors import KeyedVectors
 
 from run_model import load_files, encode_labels, prediction_results
 from word_cnn import create_tensor, create_sentence_tensor, expand_labels
+from evaluation import voting_test
 
 WORD_VEC_FILE = '../trained_vectors.bin'
 MAX_SEQUENCE_LENGTH = 50
@@ -58,45 +59,6 @@ class LstmModel(object):
         model.save('my_model3.hdf')
         return model
 
-
-def voting_test(model, test_tensored_in, test_orig_labels, test_num_sentences_dict):
-
-    encoded_test_labels = encode_labels(test_orig_labels)
-
-    predicted_labels = numpy.zeros(len(encoded_test_labels))
-    predicted_maxxout_labels = numpy.zeros(len(encoded_test_labels))
-
-    correct = 0.0
-    total = 0.0
-    tracker = 0
-    for i in range(len(encoded_test_labels)):
-        num_sentences = test_num_sentences_dict[i]
-        test_sample = test_tensored_in[tracker:tracker+num_sentences,:]
-        # print num_sentences, test_sample.shape
-        predict_sample = model.predict(test_sample)
-
-        predict_maxxout_sample = numpy.zeros(11)
-        for s in predict_sample:
-            j = numpy.argmax(s)
-            predict_maxxout_sample[j] = predict_maxxout_sample[j] + 1
-
-        predicted_maxxout_labels[i] = numpy.argmax(predict_maxxout_sample)
-
-
-        voted_sample = numpy.sum(predict_sample, axis=0)
-
-        predicted_labels[i] = numpy.argmax(voted_sample)
-
-        if numpy.argmax(voted_sample) == encoded_test_labels[i]:
-            correct += 1.0
-        total += 1.0
-        tracker += num_sentences
-
-    print model.summary()
-    print "Accuracy:",  str( (correct/total) )
-
-    prediction_results(encoded_test_labels, predicted_labels)
-    prediction_results(encoded_test_labels, predicted_maxxout_labels)
 
 if __name__ == '__main__':
     # load the dataset but only keep the top n words, zero the rest
