@@ -20,29 +20,77 @@ import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.layers import Dense, Input, Flatten
-from keras.layers import Conv1D, MaxPooling1D, Embedding
-from keras.metrics import categorical_accuracy
+from keras.layers import Conv1D, MaxPooling1D, Embedding, Dropout
 from keras.models import Model
 from keras.utils import to_categorical
 from gensim.models.keyedvectors import KeyedVectors
+from nltk.tokenize import sent_tokenize
 
 from run_model import load_files, encode_labels
+from features import POSTokenizer
 
 
-WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
+WORD_VEC_FILE = '../trained_vectors.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
-MAX_SEQUENCE_LENGTH = 1000
+MAX_SEQUENCE_LENGTH = 50
 MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 300
 VALIDATION_SPLIT = 0.2
 NUM_LABELS = 11
+PRETRAINED_EMBEDDINGS = True
+USE_POS_TAGS = False
+USE_DROPOUT = False
+
+
+def expand_labels(labels, num_sentence_dict):
+    expanded_labels = []
+    for i in range(len(labels)):
+        num_sentences = num_sentence_dict[i]
+        expanded_labels.extend(num_sentences * [labels[i]])
+
+    return np.array(expanded_labels)
+
+
+def create_sentence_tensor(files, tokenizer=None):
+    texts = []  # list of text samples
+    num_sentence_dict = {}
+    for i, fname in enumerate(files):
+        with open(fname) as f:
+            text = f.read()
+            sentences = sent_tokenize(text)
+            num_sentence_dict[i] = len(sentences)
+            for s in sentences:
+                if USE_POS_TAGS:
+                    t = POSTokenizer()
+                    texts.append(' '.join(t(s)))
+                else:
+                    texts.append(s)
+
+    print('Found %s texts.' % len(texts))
+
+    # finally, vectorize the text samples into a 2D integer tensor
+    if tokenizer is None:
+        tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
+        tokenizer.fit_on_texts(texts)
+    sequences = tokenizer.texts_to_sequences(texts)
+
+    word_index = tokenizer.word_index
+    print('Found %s unique tokens.' % len(word_index))
+
+    data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
+
+    return data, word_index, tokenizer, num_sentence_dict
 
 
 def create_tensor(files, tokenizer=None):
     texts = []  # list of text samples
     for fname in files:
         with open(fname) as f:
-            texts.append(f.read())
+            if USE_POS_TAGS:
+                t = POSTokenizer()
+                texts.append(' '.join(t(f.read())))
+            else:
+                texts.append(f.read())
 
     print('Found %s texts.' % len(texts))
 
@@ -63,20 +111,12 @@ def create_tensor(files, tokenizer=None):
 # first, build index mapping words in the embeddings set
 # to their embedding vector
 
-print('Indexing word vectors.')
+if PRETRAINED_EMBEDDINGS:
+    print('Indexing word vectors.')
 
-# embeddings_index = {}
-# f = open(os.path.join(GLOVE_DIR, 'glove.6B.100d.txt'))
-# for line in f:
-#     values = line.split()
-#     word = values[0]
-#     coefs = np.asarray(values[1:], dtype='float32')
-#     embeddings_index[word] = coefs
-# f.close()
+    wvModel = KeyedVectors.load_word2vec_format(WORD_VEC_FILE, binary=True)
 
-wvModel = KeyedVectors.load_word2vec_format(WORD_VEC_FILE, binary=True)
-
-print('Found %s word vectors.' % len(wvModel.vocab))
+    print('Found %s word vectors.' % len(wvModel.vocab))
 
 # second, prepare text samples and their labels
 print('Processing text dataset')
@@ -88,7 +128,9 @@ train_files, train_labels, test_files, test_labels = load_files('train', 'dev')
 labels = to_categorical(np.array(encode_labels(train_labels)))
 
 # Create data tensor
-data, word_index, tokenizer = create_tensor(train_files)
+data, word_index, tokenizer, num_sentence_dict = create_sentence_tensor(train_files)
+
+labels = expand_labels(labels, num_sentence_dict)
 
 print('Shape of data tensor:', data.shape)
 print('Shape of label tensor:', labels.shape)
@@ -105,51 +147,57 @@ y_train = labels[:-num_validation_samples]
 x_val = data[-num_validation_samples:]
 y_val = labels[-num_validation_samples:]
 
-print('Preparing embedding matrix.')
+num_words = min(MAX_NB_WORDS, len(word_index)+1)
 
-# prepare embedding matrix
-num_words = min(MAX_NB_WORDS, len(word_index))
-embedding_matrix = np.zeros((num_words, EMBEDDING_DIM))
-unknown_count = 0
-for word, i in word_index.items():
-    if i >= MAX_NB_WORDS:
-        continue
-    if word in wvModel:
-        # words not found in embedding index will be all-zeros.
-        embedding_matrix[i] = wvModel[word]
-    else:
-        unknown_count += 1
+if PRETRAINED_EMBEDDINGS:
+    print('Preparing embedding matrix.')
 
-print('Found %d unknown words.' % unknown_count)
+    # prepare embedding matrix
+    embedding_matrix = np.zeros((num_words, EMBEDDING_DIM))
+    unknown_count = 0
+    for word, i in word_index.items():
+        if i >= MAX_NB_WORDS:
+            continue
+        if word in wvModel:
+            # words not found in embedding index will be all-zeros.
+            embedding_matrix[i] = wvModel[word]
+        else:
+            unknown_count += 1
 
-# load pre-trained word embeddings into an Embedding layer
-# note that we set trainable = False so as to keep the embeddings fixed
-embedding_layer = Embedding(num_words,
-                            EMBEDDING_DIM,
-                            weights=[embedding_matrix],
-                            input_length=MAX_SEQUENCE_LENGTH,
-                            trainable=False)
+    print('Found %d unknown words.' % unknown_count)
+
+    # load pre-trained word embeddings into an Embedding layer
+    # note that we set trainable = False so as to keep the embeddings fixed
+    embedding_layer = Embedding(num_words,
+                                EMBEDDING_DIM,
+                                weights=[embedding_matrix],
+                                input_length=MAX_SEQUENCE_LENGTH,
+                                trainable=False)
+else:
+    print('Preparing embedding layer')
+
+    embedding_layer = Embedding(num_words,
+                                EMBEDDING_DIM,
+                                input_length=MAX_SEQUENCE_LENGTH)
 
 print('Training model.')
 
 # train a 1D convnet with global maxpooling
 sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 embedded_sequences = embedding_layer(sequence_input)
+embedded_sequences = Dropout(0.2)(embedded_sequences) if USE_DROPOUT else embedded_sequences
 x = Conv1D(128, 5, activation='relu')(embedded_sequences)
-# x = MaxPooling1D(5)(x)
-# x = Conv1D(128, 5, activation='relu')(x)
-# x = MaxPooling1D(5)(x)
-# x = Conv1D(128, 5, activation='relu')(x)
 x = MaxPooling1D(35)(x)
 x = Flatten()(x)
 x = Dense(128, activation='relu')(x)
+x = Dropout(0.2)(x) if USE_DROPOUT else x
 preds = Dense(NUM_LABELS, activation='softmax')(x)
 
 model = Model(sequence_input, preds)
 model.compile(loss='categorical_crossentropy',
               optimizer='adam',
               metrics=['acc'])
-
+print(model.summary())
 model.fit(x_train, y_train,
           batch_size=128,
           epochs=10,
@@ -159,5 +207,3 @@ model.fit(x_train, y_train,
 x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer)
 y_test = to_categorical(np.array(encode_labels(test_labels)))
 print(model.evaluate(x_test, y_test))
-# y_pred = model.predict(x_test)
-# print(categorical_accuracy(y_test, y_pred))
