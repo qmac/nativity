@@ -67,7 +67,6 @@ class StylometricFeatureExtractor(object):
                             sum_sent_lengths/len_of_essay,
                             sum_word_lengths/sum_sent_lengths,
                             lexical_variety])
-        print sum_sent_lengths
         return np_vec
 
 

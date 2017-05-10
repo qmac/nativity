@@ -32,7 +32,7 @@ from features import POSTokenizer
 
 WORD_VEC_FILE = '../trained_vectors.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
-MAX_SEQUENCE_LENGTH = 1000
+MAX_SEQUENCE_LENGTH = 50
 MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 300
 VALIDATION_SPLIT = 0.2
