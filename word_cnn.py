@@ -24,7 +24,9 @@ from gensim.models.keyedvectors import KeyedVectors
 
 from run_model import load_files, encode_labels
 from evaluation import voting_test
-from tensors import (create_character_tensor,
+from tensors import (expand_labels,
+                     create_character_sentence_tensor,
+                     create_character_tensor,
                      create_sentence_tensor,
                      create_tensor,
                      create_stylo_tensor)
@@ -35,7 +37,7 @@ WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
 MAX_SEQUENCE_LENGTH = 1000
 MAX_NB_WORDS = 72
-EMBEDDING_DIM = 300
+EMBEDDING_DIM = 100
 VALIDATION_SPLIT = 0.2
 NUM_LABELS = 11
 PRETRAINED_EMBEDDINGS = False
@@ -66,12 +68,12 @@ if __name__ == '__main__':
 
     # Create data tensor
     # data, word_index, tokenizer, num_sentence_dict = create_sentence_tensor(train_files)
-    data = create_character_tensor(train_files, max_seq_length=MAX_SEQUENCE_LENGTH)
+    data, num_sentence_dict = create_character_sentence_tensor(train_files, max_seq_length=MAX_SEQUENCE_LENGTH)
     word_index = np.arange(71)
 
     # stylo_tensor = create_stylo_tensor(train_files)
 
-    # labels = expand_labels(labels, num_sentence_dict)
+    labels = expand_labels(labels, num_sentence_dict)
 
     print('Shape of data tensor:', data.shape)
     print('Shape of label tensor:', labels.shape)
@@ -151,23 +153,20 @@ if __name__ == '__main__':
     # model.fit([x_train, stylo_train], y_train,
     model.fit(x_train, y_train,
               batch_size=128,
-              epochs=10,
+              epochs=15,
               validation_data=(x_val, y_val))
               # validation_data=([x_val, stylo_val], y_val))
 
     # Evaluate
-    # x_test, _, _, test_sentence_dict = create_sentence_tensor(test_files, tokenizer=tokenizer)
-
-    # y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
-    x_test = create_character_tensor(test_files, max_seq_length=MAX_SEQUENCE_LENGTH)
-    y_test = to_categorical(np.array(encode_labels(test_labels)))
+    x_test, test_sentence_dict = create_character_sentence_tensor(test_files, max_seq_length=MAX_SEQUENCE_LENGTH)
+    y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
+    # y_test = to_categorical(np.array(encode_labels(test_labels)))
     print(model.evaluate(x_test, y_test))
 
     if SAVE_MODEL:
         model.save('char_cnn_model.hdf')
 
-    #x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer)
-    #y_test = to_categorical(np.array(encode_labels(test_labels)))
-    #stylo_test = create_stylo_tensor(test_files)
-    #print(model.evaluate([x_test, stylo_test], y_test))
-    # voting_test(model, x_test, test_labels, test_sentence_dict)
+    # stylo_test = create_stylo_tensor(test_files)
+    # print(model.evaluate([x_test, stylo_test], y_test))
+
+    voting_test(model, x_test, test_labels, test_sentence_dict)
