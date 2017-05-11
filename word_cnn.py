@@ -17,10 +17,11 @@ http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/news20.html
 from __future__ import print_function
 
 import numpy as np
+import sys
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.layers import Dense, Input, Flatten
-from keras.layers import Conv1D, MaxPooling1D, Embedding, Dropout
+from keras.layers import Conv1D, MaxPooling1D, Embedding, Dropout, LSTM
 from keras.models import Model
 from keras.utils import to_categorical
 from gensim.models.keyedvectors import KeyedVectors
@@ -33,12 +34,12 @@ from evaluation import voting_test
 
 WORD_VEC_FILE = '../trained_vectors.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
-MAX_SEQUENCE_LENGTH = 50
-MAX_NB_WORDS = 20000
+MAX_SEQUENCE_LENGTH = 1000
+MAX_NB_WORDS = 72
 EMBEDDING_DIM = 300
 VALIDATION_SPLIT = 0.2
 NUM_LABELS = 11
-PRETRAINED_EMBEDDINGS = True
+PRETRAINED_EMBEDDINGS = False
 USE_POS_TAGS = False
 USE_DROPOUT = False
 
@@ -51,6 +52,34 @@ def expand_labels(labels, num_sentence_dict):
 
     return np.array(expanded_labels)
 
+
+def char_to_i(c):
+    c = c.upper()
+    n = ord(c)
+    if n < 32:
+        if n == 9 or n == 10:
+            return n + 60
+    if n > 96:
+        return n - 32 - 26
+    else:
+        return n - 32
+
+
+def create_character_tensor(files, tokenizer=None):
+    texts = []
+
+    for i, fname in enumerate(files):
+        with open(fname) as f:
+            text = f.read()
+            a = [char_to_i(c) for c in list((text.upper()))]
+            texts.append(a)
+
+    b = pad_sequences(texts, maxlen=MAX_SEQUENCE_LENGTH)
+    
+
+    # data = [ np.eye(71)[b[i]] for i in range(len(b))]        
+
+    return np.asarray(b)
 
 def create_sentence_tensor(files, tokenizer=None):
     texts = []  # list of text samples
@@ -130,9 +159,11 @@ if __name__ == '__main__':
     labels = to_categorical(np.array(encode_labels(train_labels)))
 
     # Create data tensor
-    data, word_index, tokenizer, num_sentence_dict = create_sentence_tensor(train_files)
+    # data, word_index, tokenizer, num_sentence_dict = create_sentence_tensor(train_files)
+    data = create_character_tensor(train_files)
+    word_index = np.arange(71)
 
-    labels = expand_labels(labels, num_sentence_dict)
+    # labels = expand_labels(labels, num_sentence_dict)
 
     print('Shape of data tensor:', data.shape)
     print('Shape of label tensor:', labels.shape)
@@ -202,11 +233,17 @@ if __name__ == '__main__':
     print(model.summary())
     model.fit(x_train, y_train,
               batch_size=128,
-              epochs=1,
+              epochs=15,
               validation_data=(x_val, y_val))
 
+
     # Evaluate
-    x_test, _, _, test_sentence_dict = create_sentence_tensor(test_files, tokenizer=tokenizer)
-    y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
+    # x_test, _, _, test_sentence_dict = create_sentence_tensor(test_files, tokenizer=tokenizer)
+
+    # y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
+    x_test = create_character_tensor(test_files)
+    y_test = np.eye(11)[encode_labels(test_labels)]
     print(model.evaluate(x_test, y_test))
-    voting_test(model, x_test, test_labels, test_sentence_dict)
+
+    model.save('char_cnn_model.hdf')
+    # voting_test(model, x_test, test_labels, test_sentence_dict)

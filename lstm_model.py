@@ -7,6 +7,8 @@ from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
+from keras.layers.convolutional import Conv1D
+from keras.layers.convolutional import MaxPooling1D
 
 from keras.models import load_model
 
@@ -43,9 +45,11 @@ class LstmModel(object):
         else:
             model.add(embed_layer)
         # model.add(Dropout(0.2))
-        model.add(LSTM(100))
+        # model.add(Conv1D(128, 5, activation='relu'))
+        # model.add(MaxPooling1D(35))
+        model.add(LSTM(32, dropout=0.2))
         # model.add(Dropout(0.2))
-        model.add(Dense(l, activation='sigmoid'))
+        model.add(Dense(l, activation='softmax'))
         # model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -91,6 +95,7 @@ if __name__ == '__main__':
     encoded_test_labels = encode_labels(expanded_labels_test)
 
 
+    # ONE HOTS
     one_hot_y_train =  numpy.eye(11)[encoded_training_labels]
     one_hot_y_test =   numpy.eye(11)[encoded_test_labels]
 
