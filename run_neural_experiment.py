@@ -15,10 +15,7 @@ http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/news20.html
 '''
 
 import numpy as np
-from keras.layers import Dense, Input, Flatten
-from keras.layers import Conv1D, MaxPooling1D, Embedding, Dropout, LSTM
-from keras.layers.merge import concatenate
-from keras.models import Model
+from keras.layers import Embedding
 from keras.utils import to_categorical
 from gensim.models.keyedvectors import KeyedVectors
 
@@ -30,20 +27,25 @@ from tensors import (expand_labels,
                      create_sentence_tensor,
                      create_tensor,
                      create_stylo_tensor)
+from cnn_model import make_cnn_model
+from lstm_model import make_lstm_model
 
 
-WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
-# WORD_VEC_FILE = '../trained_vectors.bin'
+# WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
+WORD_VEC_FILE = '../trained_vectors.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
 MAX_SEQUENCE_LENGTH = 1000
-MAX_NB_WORDS = 72
-EMBEDDING_DIM = 100
+MAX_NB_WORDS = 20000
+EMBEDDING_DIM = 300
 VALIDATION_SPLIT = 0.2
 NUM_LABELS = 11
-PRETRAINED_EMBEDDINGS = False
+NUM_EPOCHS = 1
+PRETRAINED_EMBEDDINGS = True
 USE_POS_TAGS = False
-USE_DROPOUT = False
+USE_DROPOUT = True
+USE_STYLO = False
 SAVE_MODEL = False
+USE_CNN = False
 
 
 if __name__ == '__main__':
@@ -63,17 +65,13 @@ if __name__ == '__main__':
     # Get the document files
     train_files, train_labels, test_files, test_labels = load_files('train', 'dev')
 
-    # Encode labels
+    # Load data
+    data, word_index, tokenizer = create_tensor(train_files, max_seq_length=MAX_SEQUENCE_LENGTH, max_words=MAX_NB_WORDS)
     labels = to_categorical(np.array(encode_labels(train_labels)))
 
-    # Create data tensor
-    # data, word_index, tokenizer, num_sentence_dict = create_sentence_tensor(train_files)
-    data, num_sentence_dict = create_character_sentence_tensor(train_files, max_seq_length=MAX_SEQUENCE_LENGTH)
-    word_index = np.arange(71)
-
-    # stylo_tensor = create_stylo_tensor(train_files)
-
-    labels = expand_labels(labels, num_sentence_dict)
+    # Load test data
+    x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer, max_seq_length=MAX_SEQUENCE_LENGTH, max_words=MAX_NB_WORDS)
+    y_test = to_categorical(np.array(encode_labels(test_labels)))
 
     print('Shape of data tensor:', data.shape)
     print('Shape of label tensor:', labels.shape)
@@ -83,15 +81,12 @@ if __name__ == '__main__':
     np.random.shuffle(indices)
     data = data[indices]
     labels = labels[indices]
-    # stylo_tensor = stylo_tensor[indices]
     num_validation_samples = int(VALIDATION_SPLIT * data.shape[0])
 
     x_train = data[:-num_validation_samples]
     y_train = labels[:-num_validation_samples]
     x_val = data[-num_validation_samples:]
     y_val = labels[-num_validation_samples:]
-    # stylo_train = stylo_tensor[:-num_validation_samples]
-    # stylo_val = stylo_tensor[-num_validation_samples:]
 
     num_words = min(MAX_NB_WORDS, len(word_index)+1)
 
@@ -127,46 +122,32 @@ if __name__ == '__main__':
                                     EMBEDDING_DIM,
                                     input_length=MAX_SEQUENCE_LENGTH)
 
+    if USE_STYLO:
+        stylo_tensor = create_stylo_tensor(train_files)
+        stylo_tensor = stylo_tensor[indices]
+        stylo_train = stylo_tensor[:-num_validation_samples]
+        stylo_val = stylo_tensor[-num_validation_samples:]
+        stylo_test = create_stylo_tensor(test_files)
+        x_train = [x_train, stylo_train]
+        x_val = [x_val, stylo_val]
+        x_test = [x_test, stylo_test]
+
     print('Training model.')
 
-    # train a 1D convnet with global maxpooling
-    sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
-    embedded_sequences = embedding_layer(sequence_input)
-    embedded_sequences = Dropout(0.2)(embedded_sequences) if USE_DROPOUT else embedded_sequences
-    x = Conv1D(128, 5, activation='relu')(embedded_sequences)
-    x = MaxPooling1D(35)(x)
-    x = Flatten()(x)
-    x = Dense(128, activation='relu')(x)
-    x = Dropout(0.2)(x) if USE_DROPOUT else x
+    if USE_CNN:
+        model = make_cnn_model(embedding_layer, use_stylo=USE_STYLO)
+    else:
+        model = make_lstm_model(embedding_layer)
 
-    # stylo = Input(shape=(7,))
-    # x = concatenate([x, stylo])
-    preds = Dense(NUM_LABELS, activation='softmax')(x)
-
-    # model = Model([sequence_input, stylo], preds)
-    model = Model(sequence_input, preds)
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='adam',
-                  metrics=['acc'])
-    print(model.summary())
-
-    # model.fit([x_train, stylo_train], y_train,
     model.fit(x_train, y_train,
               batch_size=128,
-              epochs=15,
+              epochs=NUM_EPOCHS,
               validation_data=(x_val, y_val))
-              # validation_data=([x_val, stylo_val], y_val))
 
     # Evaluate
-    x_test, test_sentence_dict = create_character_sentence_tensor(test_files, max_seq_length=MAX_SEQUENCE_LENGTH)
-    y_test = expand_labels(to_categorical(np.array(encode_labels(test_labels))), test_sentence_dict)
-    # y_test = to_categorical(np.array(encode_labels(test_labels)))
     print(model.evaluate(x_test, y_test))
 
     if SAVE_MODEL:
         model.save('char_cnn_model.hdf')
 
-    # stylo_test = create_stylo_tensor(test_files)
-    # print(model.evaluate([x_test, stylo_test], y_test))
-
-    voting_test(model, x_test, test_labels, test_sentence_dict)
+    # voting_test(model, x_test, test_labels, test_sentence_dict)
