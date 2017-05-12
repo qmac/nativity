@@ -153,9 +153,9 @@ if __name__ == '__main__':
     print('Training model.')
 
     if USE_CNN:
-        model = make_cnn_model(embedding_layer, use_stylo=USE_STYLO)
+        model = make_cnn_model(embedding_layer, use_dropout=USE_DROPOUT, max_sequence_length=MAX_SEQUENCE_LENGTH, use_stylo=USE_STYLO)
     else:
-        model = make_lstm_model(embedding_layer)
+        model = make_lstm_model(embedding_layer, use_dropout=USE_DROPOUT)
 
     model.fit(x_train, y_train,
               batch_size=128,
