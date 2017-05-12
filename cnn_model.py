@@ -24,7 +24,7 @@ def make_cnn_model(embedding_layer, max_sequence_length=1000, use_dropout=True, 
         x = concatenate([x, stylo])
     preds = Dense(11, activation='softmax')(x)
 
-    model = Model(sequence_input, preds) if use_stylo else Model([sequence_input, stylo], preds)
+    model = Model([sequence_input, stylo], preds) if use_stylo else Model(sequence_input, preds)
     model.compile(loss='categorical_crossentropy',
                   optimizer='adam',
                   metrics=['acc'])
