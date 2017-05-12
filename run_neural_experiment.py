@@ -19,14 +19,11 @@ from keras.layers import Embedding
 from keras.utils import to_categorical
 from gensim.models.keyedvectors import KeyedVectors
 
-from run_model import load_files, encode_labels
+from run_model import load_files, encode_labels, load_features
 from evaluation import voting_test
 from tensors import (expand_labels,
-                     create_character_sentence_tensor,
                      create_character_tensor,
-                     create_sentence_tensor,
-                     create_tensor,
-                     create_stylo_tensor)
+                     create_word_tensor)
 from cnn_model import make_cnn_model
 from lstm_model import make_lstm_model
 
@@ -40,12 +37,14 @@ EMBEDDING_DIM = 300
 VALIDATION_SPLIT = 0.2
 NUM_LABELS = 11
 NUM_EPOCHS = 1
-PRETRAINED_EMBEDDINGS = True
+PRETRAINED_EMBEDDINGS = False
 USE_POS_TAGS = False
 USE_DROPOUT = True
 USE_STYLO = False
 SAVE_MODEL = False
-USE_CNN = False
+USE_CNN = False  # otherwise, lstm
+SENTENCE_LEVEL = True  # otherwise, doc level
+USE_WORDS = True  # otherwise, character level
 
 
 if __name__ == '__main__':
@@ -65,13 +64,32 @@ if __name__ == '__main__':
     # Get the document files
     train_files, train_labels, test_files, test_labels = load_files('train', 'dev')
 
-    # Load data
-    data, word_index, tokenizer = create_tensor(train_files, max_seq_length=MAX_SEQUENCE_LENGTH, max_words=MAX_NB_WORDS)
-    labels = to_categorical(np.array(encode_labels(train_labels)))
+    # Load x's
+    if USE_WORDS:
+        data, word_index, tokenizer, train_sentence_dict = create_word_tensor(train_files,
+                                                         sentence_level=SENTENCE_LEVEL,
+                                                         max_seq_length=MAX_SEQUENCE_LENGTH,
+                                                         max_words=MAX_NB_WORDS)
+        x_test, _, _, test_sentence_dict = create_word_tensor(test_files,
+                                          sentence_level=SENTENCE_LEVEL,
+                                          tokenizer=tokenizer,
+                                          max_seq_length=MAX_SEQUENCE_LENGTH,
+                                          max_words=MAX_NB_WORDS)
+    else:
+        data, train_sentence_dict = create_character_tensor(train_files,
+                                                         sentence_level=SENTENCE_LEVEL,
+                                                         max_seq_length=MAX_SEQUENCE_LENGTH)
+        x_test, test_sentence_dict = create_character_tensor(test_files,
+                                          sentence_level=SENTENCE_LEVEL,
+                                          max_seq_length=MAX_SEQUENCE_LENGTH)
+        word_index = np.arange(72)
 
-    # Load test data
-    x_test, _, _ = create_tensor(test_files, tokenizer=tokenizer, max_seq_length=MAX_SEQUENCE_LENGTH, max_words=MAX_NB_WORDS)
+    # Load y's
+    labels = to_categorical(np.array(encode_labels(train_labels)))
     y_test = to_categorical(np.array(encode_labels(test_labels)))
+    if SENTENCE_LEVEL:
+        labels = expand_labels(labels, train_sentence_dict)
+        y_test = expand_labels(y_test, test_sentence_dict)
 
     print('Shape of data tensor:', data.shape)
     print('Shape of label tensor:', labels.shape)
@@ -123,11 +141,11 @@ if __name__ == '__main__':
                                     input_length=MAX_SEQUENCE_LENGTH)
 
     if USE_STYLO:
-        stylo_tensor = create_stylo_tensor(train_files)
+        stylo_tensor = load_features(train_files)
         stylo_tensor = stylo_tensor[indices]
         stylo_train = stylo_tensor[:-num_validation_samples]
         stylo_val = stylo_tensor[-num_validation_samples:]
-        stylo_test = create_stylo_tensor(test_files)
+        stylo_test = load_features(test_files)
         x_train = [x_train, stylo_train]
         x_val = [x_val, stylo_val]
         x_test = [x_test, stylo_test]
@@ -150,4 +168,5 @@ if __name__ == '__main__':
     if SAVE_MODEL:
         model.save('char_cnn_model.hdf')
 
-    # voting_test(model, x_test, test_labels, test_sentence_dict)
+    if SENTENCE_LEVEL:
+        voting_test(model, x_test, test_labels, test_sentence_dict)
