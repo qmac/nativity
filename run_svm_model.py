@@ -2,12 +2,11 @@ import csv
 import os
 import numpy as np
 from sklearn import metrics
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import Normalizer, scale
-from sklearn.svm import LinearSVC, SVC
+from sklearn.preprocessing import scale
+from sklearn.svm import LinearSVC
 
 from features import POSTokenizer, StylometricFeatureExtractor
 
@@ -35,9 +34,11 @@ def load_files(train_partition, test_partition, preprocessor='tokenized'):
 
     return training_files, training_labels, test_files, test_labels
 
+
 # Turn labels from "ITA" to a number
 def encode_labels(labels):
     return [CLASS_LABELS.index(label) for label in labels]
+
 
 # Loads n-grams given the vectorizer of from the files in file list
 def load_ngrams(file_list, labels, vectorizer=None, fit=False):
@@ -54,6 +55,7 @@ def load_ngrams(file_list, labels, vectorizer=None, fit=False):
           % (doc_term_matrix.shape[0], doc_term_matrix.shape[1]))
 
     return doc_term_matrix.astype(float), vectorizer
+
 
 # Loads stylometric features
 def load_features(file_list):
@@ -103,42 +105,35 @@ if __name__ == '__main__':
     encoded_training_labels = encode_labels(training_labels)
     encoded_test_labels = encode_labels(test_labels)
 
-    # Create training and testing matrix
-    training_matrix = load_features(training_files)
-    testing_matrix = load_features(test_files)
-
-    # Running SVM
-
-
-    # vectorizer = CountVectorizer(input='filename', ngram_range=(1, 1), min_df=1)
-    # vectorizer = CountVectorizer(input='filename', tokenizer=POSTokenizer(), ngram_range=(4, 4))
-    # training_matrix, encoded_training_labels, vectorizer = load_ngrams(training_files,
-    #                                                                    training_labels,
-    #                                                                    vectorizer,
-    #                                                                    fit=True)
-    # print 'Final features: ' + str(vectorizer.get_feature_names())
-    # test_matrix, encoded_test_labels,  _ = load_ngrams(test_files, test_labels, vectorizer)
+    # Create training and testing data
+    vectorizer = CountVectorizer(input='filename', analyzer='char', ngram_range=(2, 7), min_df=1)
+    # Uncomment for POS tag data
+    # vectorizer = CountVectorizer(input='filename', tokenizer=POSTokenizer(), ngram_range=(1, 7))
+    training_matrix, vectorizer = load_ngrams(training_files,
+                                              training_labels,
+                                              vectorizer,
+                                              fit=True)
+    testing_matrix,  _ = load_ngrams(test_files, test_labels, vectorizer)
 
     # Normalize frequencies to unit length
-    # transformer = Normalizer()
-    # transformer = TfidfTransformer()
-    # training_matrix = transformer.fit_transform(training_matrix)
-    # testing_matrix = transformer.fit_transform(test_matrix)
+    transformer = TfidfTransformer()
+    training_matrix = transformer.fit_transform(training_matrix)
+    testing_matrix = transformer.fit_transform(testing_matrix)
+
+    # Uncomment for stylometric analysis
+    # training_matrix = load_features(training_files)
+    # testing_matrix = load_features(test_files)
 
     # Train the model
     print("Training the classifier...")
     clf = LinearSVC()
-    # clf = SVC()
-    # clf = KNeighborsClassifier()
-    # clf = RandomForestClassifier(n_estimators=200)
     clf.fit(training_matrix, encoded_training_labels)  # Linear kernel SVM
     predicted = clf.predict(testing_matrix)
+
+    # Display classification results
+    prediction_results(encoded_test_labels, predicted)
+    print(accuracy_score(encoded_test_labels, predicted))
 
     # Run cross val on training data
     cv_score = cross_val_score(clf, training_matrix, encoded_training_labels, cv=10).mean()
     print("Cross validation score: {}".format(cv_score))
-
-    #
-    # Display classification results
-    #
-    prediction_results(encoded_test_labels, predicted)
