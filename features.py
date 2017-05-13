@@ -13,6 +13,7 @@ class POSTokenizer(object):
         return [tag[1] for tag in pos_tag(tokenizer.tokenize(doc))]
 
 
+# Extract stylometric features, such as avg word length and lexical variety
 class StylometricFeatureExtractor(object):
 
     def extract(self, doc):
@@ -60,6 +61,7 @@ class StylometricFeatureExtractor(object):
 
         lexical_variety = len(set(passage)) / float(len(passage))
 
+	# The features
         np_vec = np.matrix([num_mispelled_words,
                             num_of_articles,
                             len_of_essay,
@@ -69,7 +71,7 @@ class StylometricFeatureExtractor(object):
                             lexical_variety])
         return np_vec
 
-
+# Sample used for testing
 if __name__ == '__main__':
     ct = StylometricFeatureExtractor()
     print ct.extract("I fully agree to that statement because of the following reasons. \

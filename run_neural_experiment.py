@@ -1,17 +1,6 @@
 '''
 Taken/adapted from keras/examples
 https://github.com/fchollet/keras/blob/master/examples/pretrained_word_embeddings.py
-
-
-This script loads pre-trained word embeddings (GloVe embeddings)
-into a frozen Keras Embedding layer, and uses it to
-train a text classification model on the 20 Newsgroup dataset
-(classication of newsgroup messages into 20 different categories).
-GloVe embedding data can be found at:
-http://nlp.stanford.edu/data/glove.6B.zip
-(source page: http://nlp.stanford.edu/projects/glove/)
-20 Newsgroup data can be found at:
-http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/news20.html
 '''
 
 import numpy as np
@@ -28,13 +17,15 @@ from cnn_model import make_cnn_model
 from lstm_model import make_lstm_model
 
 
+# Parameters to configure the experiment
+
 # WORD_VEC_FILE = '../GoogleNews-vectors-negative300.bin'
 WORD_VEC_FILE = '../trained_vectors.bin'
 TEXT_DATA_DIR = '../nli-shared-task-2017/data/essays/'
-MAX_SEQUENCE_LENGTH = 1000
-MAX_NB_WORDS = 20000
+MAX_SEQUENCE_LENGTH = 500
+MAX_NB_WORDS = 50000
 EMBEDDING_DIM = 300
-VALIDATION_SPLIT = 0.2
+VALIDATION_SPLIT = 0.1
 NUM_LABELS = 11
 NUM_EPOCHS = 10
 PRETRAINED_EMBEDDINGS = False

@@ -1,7 +1,7 @@
 import numpy as np
 from run_model import encode_labels, prediction_results
 
-
+# Performs sentence voting test
 def voting_test(model, test_tensored_in, test_orig_labels, test_num_sentences_dict):
 
     encoded_test_labels = encode_labels(test_orig_labels)

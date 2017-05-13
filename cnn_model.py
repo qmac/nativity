@@ -8,7 +8,7 @@ from keras.layers import Conv1D, MaxPooling1D, Dropout
 from keras.layers.merge import concatenate
 from keras.models import Model
 
-
+# Create Convolutional Neural Network Model
 def make_cnn_model(embedding_layer, max_sequence_length=1000, use_dropout=True, use_stylo=False):
     # make a 1D convnet with global maxpooling
     sequence_input = Input(shape=(max_sequence_length,), dtype='int32')

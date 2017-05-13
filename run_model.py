@@ -15,6 +15,7 @@ SCRIPT_DIR = '../nli-shared-task-2017/scripts/'
 CLASS_LABELS = ['ARA', 'CHI', 'FRE', 'GER', 'HIN', 'ITA', 'JPN', 'KOR', 'SPA', 'TEL', 'TUR']  # valid labels
 
 
+# Loads files from training data
 def load_files(train_partition, test_partition, preprocessor='tokenized'):
     train_labels_path = "{script_dir}/../data/labels/{train}/labels.{train}.csv".format(train=train_partition, script_dir=SCRIPT_DIR)
     test_labels_path = "{script_dir}/../data/labels/{test}/labels.{test}.csv".format(test=test_partition, script_dir=SCRIPT_DIR)
@@ -34,11 +35,11 @@ def load_files(train_partition, test_partition, preprocessor='tokenized'):
 
     return training_files, training_labels, test_files, test_labels
 
-
+# Turn labels from "ITA" to a number
 def encode_labels(labels):
     return [CLASS_LABELS.index(label) for label in labels]
 
-
+# Loads n-grams given the vectorizer of from the files in file list
 def load_ngrams(file_list, labels, vectorizer=None, fit=False):
     # convert label strings to integers
     if vectorizer is None:
@@ -54,7 +55,7 @@ def load_ngrams(file_list, labels, vectorizer=None, fit=False):
 
     return doc_term_matrix.astype(float), vectorizer
 
-
+# Loads stylometric features
 def load_features(file_list):
     vectorizer = StylometricFeatureExtractor()
 
@@ -105,6 +106,9 @@ if __name__ == '__main__':
     # Create training and testing matrix
     training_matrix = load_features(training_files)
     testing_matrix = load_features(test_files)
+
+    # Running SVM
+
 
     # vectorizer = CountVectorizer(input='filename', ngram_range=(1, 1), min_df=1)
     # vectorizer = CountVectorizer(input='filename', tokenizer=POSTokenizer(), ngram_range=(4, 4))

@@ -7,7 +7,7 @@ from keras.layers import LSTM
 
 numpy.random.seed(7)
 
-
+# Makes LSTM model
 def make_lstm_model(embedding_layer, use_dropout=True):
     # create the model
     model = Sequential()

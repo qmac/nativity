@@ -6,6 +6,7 @@ from nltk.tokenize import sent_tokenize
 from features import POSTokenizer
 
 
+# Turns the labels for a document to labels for all the sentences in the document
 def expand_labels(labels, num_sentence_dict):
     expanded_labels = []
     for i in range(len(labels)):
@@ -14,7 +15,7 @@ def expand_labels(labels, num_sentence_dict):
 
     return np.array(expanded_labels)
 
-
+# Comes up with a number for each character
 def char_to_i(c):
     c = c.upper()
     n = ord(c)
@@ -28,7 +29,7 @@ def char_to_i(c):
     else:
         return n - 32
 
-
+# Creates the character sequence input
 def create_character_tensor(files, sentence_level=False, max_seq_length=1000):
     texts = []
     num_sentence_dict = {}
@@ -48,7 +49,7 @@ def create_character_tensor(files, sentence_level=False, max_seq_length=1000):
     b = pad_sequences(texts, maxlen=max_seq_length)
     return np.asarray(b), num_sentence_dict
 
-
+# Creates the word sequence input
 def create_word_tensor(files, tokenizer=None, sentence_level=False, use_pos=False, max_seq_length=1000, max_words=20000):
     texts = []  # list of text samples
     num_sentence_dict = {}
